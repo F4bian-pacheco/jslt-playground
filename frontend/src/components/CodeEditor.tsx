@@ -86,14 +86,23 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       });
 
       monaco.languages.registerCompletionItemProvider('jslt', {
-        provideCompletionItems: (model, position) => {
-          const suggestions = [
+        provideCompletionItems: (model, position, context, token) => {
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+
+          const suggestions: monaco.languages.CompletionItem[] = [
             {
               label: 'for',
               kind: monaco.languages.CompletionItemKind.Keyword,
               insertText: 'for (${1:.array}) ${2:expression}',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Iterate over an array',
+              range,
             },
             {
               label: 'if',
@@ -101,6 +110,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               insertText: 'if (${1:condition}) ${2:then} else ${3:else}',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Conditional expression',
+              range,
             },
             {
               label: 'size',
@@ -108,6 +118,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               insertText: 'size(${1:value})',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Get the size of an array, object, or string',
+              range,
             },
             {
               label: 'string',
@@ -115,6 +126,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               insertText: 'string(${1:value})',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Convert value to string',
+              range,
             },
             {
               label: 'number',
@@ -122,6 +134,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               insertText: 'number(${1:value})',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Convert value to number',
+              range,
             },
             {
               label: 'boolean',
@@ -129,10 +142,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               insertText: 'boolean(${1:value})',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Convert value to boolean',
+              range,
             },
           ];
 
-          return { suggestions };
+          return {
+            suggestions,
+          } as monaco.languages.CompletionList;
         },
       });
     }
