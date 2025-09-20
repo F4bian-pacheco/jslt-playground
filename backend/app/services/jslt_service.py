@@ -16,13 +16,16 @@ class JSLTService:
             'boolean': self._boolean,
             'round': self._round,
         }
+        self.variables = {}  # Global variable context
 
     def transform(self, input_json: Dict[str, Any], jslt_expression: str) -> TransformResponse:
         """Transform JSON using JSLT expression."""
         start_time = time.perf_counter()
 
         try:
-            result = self._evaluate_expression(jslt_expression.strip(), input_json)
+            # Reset variables for each transform
+            self.variables = {}
+            result = self._evaluate_expression(jslt_expression.strip(), input_json, {})
             execution_time = (time.perf_counter() - start_time) * 1000
 
             return TransformResponse(
@@ -43,7 +46,8 @@ class JSLTService:
         try:
             # Try to parse the expression with a dummy input
             test_input = {"test": "value", "array": [1, 2, 3]}
-            self._evaluate_expression(jslt_expression.strip(), test_input)
+            self.variables = {}  # Reset variables for validation
+            self._evaluate_expression(jslt_expression.strip(), test_input, {})
             return JSLTValidationResponse(valid=True)
         except Exception as e:
             return JSLTValidationResponse(
@@ -52,20 +56,42 @@ class JSLTService:
                 suggestions=self._get_suggestions(str(e))
             )
 
-    def _evaluate_expression(self, expression: str, context: Any) -> Any:
+    def _evaluate_expression(self, expression: str, context: Any, variables: Optional[Dict[str, Any]] = None) -> Any:
         """Evaluate a JSLT expression in the given context."""
+        if variables is None:
+            variables = {}
+
         expression = expression.strip()
 
         if not expression:
             return None
 
+        # Handle let statements
+        if expression.startswith('let '):
+            return self._evaluate_let_statement(expression, context, variables)
+
+        # Handle variable references
+        if expression.startswith('$'):
+            # Extract just the variable name (up to first non-alphanumeric character)
+            var_match = re.match(r'^\$(\w+)', expression)
+            if var_match:
+                var_name = var_match.group(1)
+                if var_name in variables:
+                    return variables[var_name]
+                elif var_name in self.variables:
+                    return self.variables[var_name]
+                else:
+                    raise ValueError(f"Undefined variable: ${var_name}")
+            else:
+                raise ValueError(f"Invalid variable reference: {expression}")
+
         # Handle object construction
         if expression.startswith('{') and expression.endswith('}'):
-            return self._evaluate_object(expression, context)
+            return self._evaluate_object(expression, context, variables)
 
         # Handle array construction
         if expression.startswith('[') and expression.endswith(']'):
-            return self._evaluate_array(expression, context)
+            return self._evaluate_array(expression, context, variables)
 
         # Handle string literals
         if (expression.startswith('"') and expression.endswith('"')) or \
@@ -86,31 +112,31 @@ class JSLTService:
 
         # Handle for loops
         if expression.startswith('for'):
-            return self._evaluate_for_loop(expression, context)
+            return self._evaluate_for_loop(expression, context, variables)
 
         # Handle if expressions
         if expression.startswith('if'):
-            return self._evaluate_if_expression(expression, context)
+            return self._evaluate_if_expression(expression, context, variables)
 
         # Handle function calls
         func_match = re.match(r'^(\w+)\s*\(([^)]*)\)$', expression)
         if func_match:
             func_name, args_str = func_match.groups()
-            return self._evaluate_function(func_name, args_str, context)
+            return self._evaluate_function(func_name, args_str, context, variables)
 
         # Handle comparison operations
         if ' >= ' in expression:
-            return self._evaluate_comparison(expression, context, '>=')
+            return self._evaluate_comparison(expression, context, '>=', variables)
         if ' <= ' in expression:
-            return self._evaluate_comparison(expression, context, '<=')
+            return self._evaluate_comparison(expression, context, '<=', variables)
         if ' > ' in expression:
-            return self._evaluate_comparison(expression, context, '>')
+            return self._evaluate_comparison(expression, context, '>', variables)
         if ' < ' in expression:
-            return self._evaluate_comparison(expression, context, '<')
+            return self._evaluate_comparison(expression, context, '<', variables)
         if ' == ' in expression:
-            return self._evaluate_comparison(expression, context, '==')
+            return self._evaluate_comparison(expression, context, '==', variables)
         if ' != ' in expression:
-            return self._evaluate_comparison(expression, context, '!=')
+            return self._evaluate_comparison(expression, context, '!=', variables)
 
         # Handle path expressions
         if expression.startswith('.'):
@@ -118,11 +144,39 @@ class JSLTService:
 
         raise ValueError(f"Invalid expression: {expression}")
 
-    def _evaluate_object(self, expression: str, context: Any) -> Dict[str, Any]:
+    def _evaluate_let_statement(self, expression: str, context: Any, variables: Dict[str, Any]) -> Any:
+        """Evaluate let statement and return the rest of the expression."""
+        # Pattern: let var_name = value_expr rest_expr
+        let_match = re.match(r'^let\s+(\w+)\s*=\s*(.+?)(?:\s+(.*)|$)', expression, re.DOTALL)
+        if not let_match:
+            raise ValueError("Invalid let syntax. Use: let variable = expression")
+
+        var_name, value_expr, rest_expr = let_match.groups()
+
+        # Evaluate the value expression
+        value = self._evaluate_expression(value_expr.strip(), context, variables)
+
+        # Store in local variables (takes precedence over global)
+        new_variables = variables.copy()
+        new_variables[var_name] = value
+
+        # If there's more expression after the let, evaluate it with the new variable
+        if rest_expr and rest_expr.strip():
+            return self._evaluate_expression(rest_expr.strip(), context, new_variables)
+
+        # If it's just a let statement, return the value
+        return value
+
+    def _evaluate_object(self, expression: str, context: Any, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Evaluate object construction."""
+        if variables is None:
+            variables = {}
+
         content = expression[1:-1].strip()
         if not content:
             return {}
+
+        # TODO: Handle let statements in object construction in future
 
         result = {}
         pairs = self._split_object_pairs(content)
@@ -140,19 +194,22 @@ class JSLTService:
             elif key.startswith("'") and key.endswith("'"):
                 key = key[1:-1]
 
-            value = self._evaluate_expression(value_part.strip(), context)
+            value = self._evaluate_expression(value_part.strip(), context, variables)
             result[key] = value
 
         return result
 
-    def _evaluate_array(self, expression: str, context: Any) -> List[Any]:
+    def _evaluate_array(self, expression: str, context: Any, variables: Optional[Dict[str, Any]] = None) -> List[Any]:
         """Evaluate array construction."""
+        if variables is None:
+            variables = {}
+
         content = expression[1:-1].strip()
         if not content:
             return []
 
         elements = self._split_array_elements(content)
-        return [self._evaluate_expression(elem.strip(), context) for elem in elements]
+        return [self._evaluate_expression(elem.strip(), context, variables) for elem in elements]
 
     def _evaluate_path(self, path: str, context: Any) -> Any:
         """Evaluate path expression like .field or .array[0]."""
@@ -231,23 +288,29 @@ class JSLTService:
 
         return current
 
-    def _evaluate_function(self, func_name: str, args_str: str, context: Any) -> Any:
+    def _evaluate_function(self, func_name: str, args_str: str, context: Any, variables: Optional[Dict[str, Any]] = None) -> Any:
         """Evaluate function call."""
+        if variables is None:
+            variables = {}
+
         if func_name not in self.functions:
             raise ValueError(f"Unknown function: {func_name}")
 
         args = []
         if args_str.strip():
             arg_expressions = self._split_function_args(args_str)
-            args = [self._evaluate_expression(arg.strip(), context) for arg in arg_expressions]
+            args = [self._evaluate_expression(arg.strip(), context, variables) for arg in arg_expressions]
 
         return self.functions[func_name](*args)
 
-    def _evaluate_comparison(self, expression: str, context: Any, operator: str) -> bool:
+    def _evaluate_comparison(self, expression: str, context: Any, operator: str, variables: Optional[Dict[str, Any]] = None) -> bool:
         """Evaluate comparison expression."""
+        if variables is None:
+            variables = {}
+
         left_expr, right_expr = expression.split(f' {operator} ', 1)
-        left_val = self._evaluate_expression(left_expr.strip(), context)
-        right_val = self._evaluate_expression(right_expr.strip(), context)
+        left_val = self._evaluate_expression(left_expr.strip(), context, variables)
+        right_val = self._evaluate_expression(right_expr.strip(), context, variables)
 
         # Handle null/None values
         if operator == '==':
