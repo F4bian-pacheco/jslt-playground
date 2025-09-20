@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 
@@ -46,11 +46,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             [/"/, 'string', '@string'],
 
             // Numbers
-            [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+            [/\d*\.\d+([eE][+-]?\d+)?/, 'number.float'],
             [/\d+/, 'number'],
 
             // Path expressions
-            [/\.[\w\[\]\.]+/, 'variable'],
+            [/\.[\w[\].]+/, 'variable'],
             [/\./, 'variable'],
 
             // Comments
@@ -95,10 +95,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             endColumn: word.endColumn,
           };
 
+          // eslint-disable-next-line prefer-template, no-template-curly-in-string
           const suggestions: monaco.languages.CompletionItem[] = [
             {
               label: 'for',
               kind: monaco.languages.CompletionItemKind.Keyword,
+              // eslint-disable-next-line no-template-curly-in-string
               insertText: 'for (${1:.array}) ${2:expression}',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Iterate over an array',
@@ -107,6 +109,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             {
               label: 'if',
               kind: monaco.languages.CompletionItemKind.Keyword,
+              // eslint-disable-next-line no-template-curly-in-string
               insertText: 'if (${1:condition}) ${2:then} else ${3:else}',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Conditional expression',
@@ -115,6 +118,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             {
               label: 'size',
               kind: monaco.languages.CompletionItemKind.Function,
+              // eslint-disable-next-line no-template-curly-in-string
               insertText: 'size(${1:value})',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Get the size of an array, object, or string',
@@ -123,6 +127,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             {
               label: 'string',
               kind: monaco.languages.CompletionItemKind.Function,
+              // eslint-disable-next-line no-template-curly-in-string
               insertText: 'string(${1:value})',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Convert value to string',
@@ -131,6 +136,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             {
               label: 'number',
               kind: monaco.languages.CompletionItemKind.Function,
+              // eslint-disable-next-line no-template-curly-in-string
               insertText: 'number(${1:value})',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Convert value to number',
@@ -139,6 +145,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             {
               label: 'boolean',
               kind: monaco.languages.CompletionItemKind.Function,
+              // eslint-disable-next-line no-template-curly-in-string
               insertText: 'boolean(${1:value})',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Convert value to boolean',
