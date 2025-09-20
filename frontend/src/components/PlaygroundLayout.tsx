@@ -122,7 +122,7 @@ const SuccessMessage = styled.div`
 
 const PlaygroundLayout: React.FC = () => {
   const [inputJson, setInputJson] = useState('{\n  "name": "John Doe",\n  "age": 30,\n  "city": "New York",\n  "skills": ["JavaScript", "Python", "React"]\n}');
-  const [jsltExpression, setJsltExpression] = useState('{\n  "fullName": .name,\n  "isAdult": .age >= 18,\n  "location": .city,\n  "skillCount": size(.skills),\n  "primarySkill": .skills[0]\n}');
+  const [jsltExpression, setJsltExpression] = useState('let skillCount = size(.skills)\n{\n  "fullName": .name,\n  "isAdult": .age >= 18,\n  "location": .city,\n  "skillCount": $skillCount,\n  "primarySkill": .skills[0]\n}');
   const [outputJson, setOutputJson] = useState('');
 
   const { transform, validate, isTransforming, transformResult, validationResult } = useTransform();

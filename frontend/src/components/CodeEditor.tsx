@@ -32,10 +32,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         tokenizer: {
           root: [
             // Keywords
-            [/\b(for|if|else|and|or|not|true|false|null)\b/, 'keyword'],
+            [/\b(for|if|else|let|then|and|or|not|true|false|null)\b/, 'keyword'],
 
             // Functions
             [/\b(size|string|number|boolean|round|parse-time|contains|starts-with|ends-with|split|join|min|max|sum|avg)\b/, 'function'],
+
+            // Variable references
+            [/\$\w+/, 'variable.name'],
 
             // Operators
             [/[+\-*/=<>!]/, 'operator'],
@@ -149,6 +152,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               insertText: 'boolean(${1:value})',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Convert value to boolean',
+              range,
+            },
+            {
+              label: 'let',
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              // eslint-disable-next-line no-template-curly-in-string
+              insertText: 'let ${1:variable} = ${2:expression}',
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: 'Define a variable',
               range,
             },
           ];
