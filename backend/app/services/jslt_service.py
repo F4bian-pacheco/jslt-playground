@@ -43,8 +43,15 @@ class JSLTService:
         """Validate JSLT expression syntax."""
         # TODO: Implement more thorough syntax checking
         try:
-            # Try to parse the expression with a dummy input
-            test_input = {"test": "value", "array": [1, 2, 3]}
+            # Try to parse the expression with a more comprehensive dummy input
+            test_input = {
+                "test": "value",
+                "array": [1, 2, 3],
+                "name": "John Doe",
+                "age": 25,
+                "city": "New York",
+                "skills": ["JavaScript", "Python", "Java"]
+            }
             self.variables = {}  # Reset variables for validation
             self._evaluate_expression(jslt_expression.strip(), test_input, {})
             return JSLTValidationResponse(valid=True)
@@ -65,6 +72,10 @@ class JSLTService:
         if not expression:
             return None
 
+        # Handle multi-line expressions with let statements
+        if "let " in expression and "\n" in expression:
+            return self._evaluate_multiline_expression(expression, context, variables)
+
         # Handle let statements
         if expression.startswith("let "):
             return self._evaluate_let_statement(expression, context, variables)
@@ -83,6 +94,10 @@ class JSLTService:
                     raise ValueError(f"Undefined variable: ${var_name}")
             else:
                 raise ValueError(f"Invalid variable reference: {expression}")
+
+        # Handle string/number concatenation/addition (before string literals)
+        if " + " in expression:
+            return self._evaluate_addition(expression, context, variables)
 
         # Handle object construction
         if expression.startswith("{") and expression.endswith("}"):
@@ -148,14 +163,35 @@ class JSLTService:
         self, expression: str, context: Any, variables: Dict[str, Any]
     ) -> Any:
         """Evaluate let statement and return the rest of the expression."""
-        # Pattern: let var_name = value_expr rest_expr
-        let_match = re.match(
-            r"^let\s+(\w+)\s*=\s*(.+?)(?:\s+(.*)|$)", expression, re.DOTALL
+        # Check for "let var = value in expression" syntax first
+        in_match = re.match(
+            r"^let\s+(\w+)\s*=\s*(.+?)\s+in\s+(.+)$", expression, re.DOTALL
         )
-        if not let_match:
-            raise ValueError("Invalid let syntax. Use: let variable = expression")
+        if in_match:
+            var_name, value_expr, rest_expr = in_match.groups()
 
-        var_name, value_expr, rest_expr = let_match.groups()
+            # Evaluate the value expression
+            value = self._evaluate_expression(value_expr.strip(), context, variables)
+
+            # Store in local variables (takes precedence over global)
+            new_variables = variables.copy()
+            new_variables[var_name] = value
+
+            # Evaluate the rest expression with the new variable
+            return self._evaluate_expression(rest_expr.strip(), context, new_variables)
+
+        # Fallback to the original approach for backward compatibility
+        let_match = re.match(r"^let\s+(\w+)\s*=\s*", expression)
+        if not let_match:
+            raise ValueError(
+                "Invalid let syntax. Use: let variable = expression in expression"
+            )
+
+        var_name = let_match.group(1)
+        after_equals = expression[let_match.end() :]
+
+        # Find where the value expression ends
+        value_expr, rest_expr = self._split_let_expression(after_equals)
 
         # Evaluate the value expression
         value = self._evaluate_expression(value_expr.strip(), context, variables)
@@ -205,6 +241,39 @@ class JSLTService:
 
         return result
 
+    def _evaluate_multiline_expression(
+        self, expression: str, context: Any, variables: Dict[str, Any]
+    ) -> Any:
+        """Evaluate multi-line expression with let statements."""
+        lines = expression.split('\n')
+        current_variables = variables.copy()
+
+        # Process let statements first
+        let_statements = []
+        object_lines = []
+
+        for line in lines:
+            line = line.strip()
+            if line.startswith("let "):
+                let_statements.append(line)
+            elif line:
+                object_lines.append(line)
+
+        # Evaluate let statements
+        for let_stmt in let_statements:
+            let_match = re.match(r"^let\s+(\w+)\s*=\s*(.+)$", let_stmt)
+            if let_match:
+                var_name, value_expr = let_match.groups()
+                value = self._evaluate_expression(value_expr.strip(), context, current_variables)
+                current_variables[var_name] = value
+
+        # Evaluate the remaining expression (usually an object)
+        remaining_expr = '\n'.join(object_lines)
+        if remaining_expr:
+            return self._evaluate_expression(remaining_expr, context, current_variables)
+
+        return None
+
     def _evaluate_array(
         self, expression: str, context: Any, variables: Optional[Dict[str, Any]] = None
     ) -> List[Any]:
@@ -227,7 +296,6 @@ class JSLTService:
         if path == ".":
             return context
 
-        original_path = path
         path = path[1:]  # Remove leading dot
         current = context
 
@@ -365,40 +433,91 @@ class JSLTService:
 
         return False
 
-    def _evaluate_for_loop(self, expression: str, context: Any) -> List[Any]:
+    def _evaluate_addition(
+        self, expression: str, context: Any, variables: Optional[Dict[str, Any]] = None
+    ) -> Union[str, int, float]:
+        """Evaluate addition/concatenation expression."""
+        if variables is None:
+            variables = {}
+
+        # Split by " + " but be careful with nested expressions
+        parts = self._split_addition_parts(expression)
+        if len(parts) == 1:
+            return self._evaluate_expression(parts[0].strip(), context, variables)
+
+        # Evaluate all parts
+        values = []
+        for part in parts:
+            val = self._evaluate_expression(part.strip(), context, variables)
+            values.append(val)
+
+        # If any value is a string, do string concatenation
+        if any(isinstance(v, str) for v in values):
+            result = ""
+            for val in values:
+                result += str(val if val is not None else "")
+            return result
+
+        # If all are numbers, do numeric addition
+        if all(isinstance(v, (int, float)) for v in values if v is not None):
+            result = 0
+            for val in values:
+                if val is not None:
+                    result += val
+            return result
+
+        # Default: string concatenation
+        result = ""
+        for val in values:
+            result += str(val if val is not None else "")
+        return result
+
+    def _evaluate_for_loop(
+        self, expression: str, context: Any, variables: Optional[Dict[str, Any]] = None
+    ) -> List[Any]:
         """Evaluate for loop expression."""
+        if variables is None:
+            variables = {}
+
         # Pattern: for (array_expr) loop_expr
         match = re.match(r"for\s*\(\s*([^)]+)\s*\)\s*(.+)", expression)
         if not match:
             raise ValueError("Invalid for loop syntax")
 
         array_expr, loop_expr = match.groups()
-        array_value = self._evaluate_expression(array_expr.strip(), context)
+        array_value = self._evaluate_expression(array_expr.strip(), context, variables)
 
         if not isinstance(array_value, list):
             raise ValueError("For loop requires an array")
 
         results = []
         for item in array_value:
-            result = self._evaluate_expression(loop_expr.strip(), item)
+            result = self._evaluate_expression(loop_expr.strip(), item, variables)
             results.append(result)
 
         return results
 
-    def _evaluate_if_expression(self, expression: str, context: Any) -> Any:
+    def _evaluate_if_expression(
+        self, expression: str, context: Any, variables: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """Evaluate if-then-else expression."""
+        if variables is None:
+            variables = {}
+
         # Pattern: if (condition) then_expr else else_expr
         match = re.match(r"if\s*\(\s*([^)]+)\s*\)\s*(.+?)\s+else\s+(.+)", expression)
         if not match:
             raise ValueError("Invalid if expression syntax")
 
         condition_expr, then_expr, else_expr = match.groups()
-        condition = self._evaluate_expression(condition_expr.strip(), context)
+        condition = self._evaluate_expression(
+            condition_expr.strip(), context, variables
+        )
 
         if condition:
-            return self._evaluate_expression(then_expr.strip(), context)
+            return self._evaluate_expression(then_expr.strip(), context, variables)
         else:
-            return self._evaluate_expression(else_expr.strip(), context)
+            return self._evaluate_expression(else_expr.strip(), context, variables)
 
     def _split_object_pairs(self, content: str) -> List[str]:
         """Split object content into key-value pairs."""
@@ -495,6 +614,90 @@ class JSLTService:
             args.append(current_arg.strip())
 
         return args
+
+    def _split_let_expression(self, expression: str) -> tuple[str, str]:
+        """Split let expression into value part and rest part."""
+        # For simple cases, try to find common delimiters that separate expressions
+        # This is a simplified approach - a full parser would be more robust
+
+        # Look for patterns that likely end the value expression
+        # Priority: keywords like 'let', 'for', 'if' at the beginning of words
+        keywords = ["let", "for", "if"]
+
+        # Try to find the next keyword that starts a new expression
+        min_pos = len(expression)
+        found_keyword = False
+
+        for keyword in keywords:
+            # Look for keyword preceded by whitespace (or at start)
+            pattern = r"\s+(" + keyword + r")\s*[\(\w]"
+            match = re.search(pattern, expression)
+            if match and match.start() < min_pos:
+                min_pos = match.start()
+                found_keyword = True
+
+        if found_keyword:
+            value_expr = expression[:min_pos].strip()
+            rest_expr = expression[min_pos:].strip()
+        else:
+            # If no keyword found, the entire expression is the value
+            value_expr = expression.strip()
+            rest_expr = ""
+
+        return value_expr, rest_expr
+
+    def _split_addition_parts(self, expression: str) -> List[str]:
+        """Split addition expression into parts, respecting string literals and nested expressions."""
+        parts = []
+        current_part = ""
+        in_string = False
+        string_char = None
+        depth = 0
+        i = 0
+
+        while i < len(expression):
+            char = expression[i]
+
+            if not in_string and char in "\"'":
+                in_string = True
+                string_char = char
+                current_part += char
+            elif in_string and char == string_char:
+                in_string = False
+                string_char = None
+                current_part += char
+            elif not in_string:
+                if char in "{[(":
+                    depth += 1
+                    current_part += char
+                elif char in "}])":
+                    depth -= 1
+                    current_part += char
+                elif char == "+" and depth == 0:
+                    # Check if this is part of " + "
+                    if (
+                        i > 0
+                        and expression[i - 1] == " "
+                        and i < len(expression) - 1
+                        and expression[i + 1] == " "
+                    ):
+                        # This is an addition operator
+                        parts.append(current_part.strip())
+                        current_part = ""
+                        i += 1  # Skip the space after +
+                    else:
+                        current_part += char
+                else:
+                    current_part += char
+            else:
+                current_part += char
+
+            i += 1
+
+        if current_part.strip():
+            parts.append(current_part.strip())
+
+        return parts if parts else [expression]
 
     def _get_suggestions(self, error_msg: str) -> List[str]:
         """Get suggestions based on error message."""

@@ -14,7 +14,12 @@ jslt_service = JSLTService()
 @router.post("/transform", response_model=TransformResponse)
 async def transform_json(request: TransformRequest):
     try:
-        return jslt_service.transform(request.input_json, request.jslt_expression)
+        result = jslt_service.transform(request.input_json, request.jslt_expression)
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -22,7 +27,12 @@ async def transform_json(request: TransformRequest):
 @router.post("/validate", response_model=JSLTValidationResponse)
 async def validate_jslt(request: JSLTValidationRequest):
     try:
-        return jslt_service.validate_jslt(request.jslt_expression)
+        result = jslt_service.validate_jslt(request.jslt_expression)
+        if not result.valid:
+            raise HTTPException(status_code=400, detail=result.error)
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
