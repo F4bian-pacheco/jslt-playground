@@ -17,5 +17,5 @@ export interface JSLTValidationRequest {
 export interface JSLTValidationResponse {
   valid: boolean;
   error?: string;
-  suggestions?: string[];
+  suggestions?: Array<string>;
 }

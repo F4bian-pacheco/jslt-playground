@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { TransformRequest, TransformResponse, JSLTValidationRequest, JSLTValidationResponse } from '../types/api';
+import type { JSLTValidationRequest, JSLTValidationResponse, TransformRequest, TransformResponse } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 

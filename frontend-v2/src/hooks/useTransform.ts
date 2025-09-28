@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { transformJson, validateJSLT } from '../utils/api';
-import { TransformResponse, JSLTValidationResponse } from '../types/api';
+import type { JSLTValidationResponse, TransformResponse } from '@/types/api';
 
 export const useTransform = () => {
   const [isTransforming, setIsTransforming] = useState(false);

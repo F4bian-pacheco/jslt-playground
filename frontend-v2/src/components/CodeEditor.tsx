@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
-import Editor, { Monaco } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
+import { Editor } from '@monaco-editor/react';
+import type * as monaco from 'monaco-editor';
+import type { Monaco } from '@monaco-editor/react';
 
 interface CodeEditorProps {
   value: string;
@@ -99,7 +100,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           };
 
           // eslint-disable-next-line prefer-template, no-template-curly-in-string
-          const suggestions: monaco.languages.CompletionItem[] = [
+          const suggestions: Array<monaco.languages.CompletionItem> = [
             {
               label: 'for',
               kind: monaco.languages.CompletionItemKind.Keyword,
