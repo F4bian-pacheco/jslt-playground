@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.models.transform import (
     TransformRequest,
     TransformResponse,
@@ -9,10 +11,12 @@ from app.services.jslt_service import JSLTService
 
 router = APIRouter()
 jslt_service = JSLTService()
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/transform", response_model=TransformResponse)
-async def transform_json(request: TransformRequest):
+@limiter.limit("10/minute")
+async def transform_json(request_data: Request, request: TransformRequest):
     try:
         result = jslt_service.transform(request.input_json, request.jslt_expression)
         if not result.success:
@@ -25,7 +29,8 @@ async def transform_json(request: TransformRequest):
 
 
 @router.post("/validate", response_model=JSLTValidationResponse)
-async def validate_jslt(request: JSLTValidationRequest):
+@limiter.limit("20/minute")
+async def validate_jslt(request_data: Request, request: JSLTValidationRequest):
     try:
         result = jslt_service.validate_jslt(request.jslt_expression)
         if not result.valid:
@@ -38,5 +43,6 @@ async def validate_jslt(request: JSLTValidationRequest):
 
 
 @router.get("/health")
-async def health_check():
+@limiter.limit("60/minute")
+async def health_check(request: Request):
     return {"status": "healthy", "service": "JSLT Playground API"}
