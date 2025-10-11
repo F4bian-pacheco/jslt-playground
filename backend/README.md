@@ -4,19 +4,24 @@ FastAPI backend for the JSLT Playground - provides REST API endpoints for transf
 
 ## Architecture
 
-This backend follows Clean Architecture principles with clear separation of concerns:
+This backend follows Clean Architecture principles with clear separation of concerns and uses the **Strategy + Chain of Responsibility** pattern for the JSLT interpreter:
 
 ```
 backend/
 ├── app/
-│   ├── api/          # REST API endpoints
-│   ├── core/         # Configuration and settings
-│   ├── models/       # Pydantic models and schemas
-│   ├── services/     # Business logic and JSLT interpreter
-│   └── main.py       # FastAPI application setup
-├── tests/            # Unit and integration tests
-├── start.py          # Application entry point
-└── requirements.txt  # Python dependencies
+│   ├── api/              # REST API endpoints
+│   ├── core/             # Configuration and settings
+│   ├── models/           # Pydantic models and schemas
+│   ├── services/
+│   │   └── jslt/         # Refactored JSLT interpreter (modular design)
+│   │       ├── evaluators/    # Expression evaluators (Strategy pattern)
+│   │       ├── functions/     # Built-in and custom functions
+│   │       ├── utils/         # Parsing utilities
+│   │       └── jslt_service.py # Main orchestrator
+│   └── main.py           # FastAPI application setup
+├── tests/                # Unit and integration tests
+├── start.py              # Application entry point
+└── requirements.txt      # Python dependencies
 ```
 
 ## Features
@@ -80,24 +85,77 @@ Validate JSLT expression syntax.
 
 ## JSLT Service Features
 
-The custom JSLT interpreter (`app/services/jslt_service.py`) supports:
+The custom JSLT interpreter uses a modular, extensible architecture with the following components:
 
-### Core Functionality
-- **Path expressions**: `.field`, `.array[0]`, `.nested.field`
-- **Object construction**: `{ "key": .value }`
-- **Array construction**: `[.item1, .item2]`
-- **Variable system**: `let variable = expression` and `$variable` references
+### 🏗️ Modular Architecture
 
-### Built-in Functions
+#### **Evaluators (Strategy Pattern)**
+Each evaluator handles a specific type of JSLT expression:
+- **LiteralEvaluator**: String, number, boolean, and null literals
+- **PathEvaluator**: Property access (`.field`, `.array[0]`, `.nested.field`)
+- **ObjectEvaluator**: Object construction (`{ "key": .value }`)
+- **ArrayEvaluator**: Array construction (`[.item1, .item2]`)
+- **VariableEvaluator**: Variable declarations and references (`let x = .value`, `$x`)
+- **OperatorEvaluator**: Comparisons and arithmetic (`>=`, `+`, etc.)
+- **ControlFlowEvaluator**: Conditionals and loops (`if`, `for`)
+- **FunctionEvaluator**: Function calls (`size()`, `string()`, etc.)
+
+#### **Built-in Functions**
 - `size(array)` - Get array/object/string length
 - `string(value)` - Convert to string
 - `number(value)` - Convert to number
 - `boolean(value)` - Convert to boolean
 - `round(number)` - Round to nearest integer
 
-### Control Flow
-- `for (.array) expression` - Array iteration with variable scoping
-- `if (condition) then else` - Conditional expressions
+### 🔌 Extensibility
+
+The service is designed for easy extension:
+
+**Adding a Custom Function:**
+```python
+from app.services.jslt import JSLTService, BaseFunction
+
+class UpperFunction(BaseFunction):
+    @property
+    def name(self) -> str:
+        return "upper"
+
+    def execute(self, value: str) -> str:
+        return value.upper()
+
+# Register the function
+service = JSLTService()
+service.register_function(UpperFunction())
+```
+
+**Adding a Custom Evaluator:**
+```python
+from app.services.jslt import JSLTService, BaseEvaluator
+
+class CustomEvaluator(BaseEvaluator):
+    def can_evaluate(self, expression: str, context: Any) -> bool:
+        return expression.startswith("custom:")
+
+    def evaluate(self, expression: str, context: Any, variables: Dict) -> Any:
+        # Custom logic here
+        pass
+
+    @property
+    def priority(self) -> int:
+        return 85  # Higher = evaluated first
+
+# Register the evaluator
+service = JSLTService()
+service.register_evaluator(CustomEvaluator(service))
+```
+
+### Core Functionality
+- **Path expressions**: `.field`, `.array[0]`, `.nested.field`
+- **Object construction**: `{ "key": .value }`
+- **Array construction**: `[.item1, .item2]`
+- **Variable system**: `let variable = expression` and `$variable` references
+- **Control flow**: `for (.array) expression`, `if (condition) then else`
+- **Operators**: Comparisons (`>=`, `<`, `==`) and string/number concatenation (`+`)
 
 ## Quick Start
 
@@ -152,8 +210,19 @@ Application settings are managed in `app/core/config.py`:
 - **`app/api/`**: REST API endpoints and request/response handling
 - **`app/core/`**: Application configuration and settings
 - **`app/models/`**: Pydantic models for request/response validation
-- **`app/services/`**: Core business logic including the JSLT interpreter
+- **`app/services/jslt/`**: Refactored JSLT interpreter with modular architecture
+  - **`evaluators/`**: Expression evaluators using the Strategy pattern
+  - **`functions/`**: Built-in and custom function implementations
+  - **`utils/`**: Parsing and utility functions
+  - **`jslt_service.py`**: Main service orchestrator
 - **`start.py`**: Uvicorn server configuration and application startup
+
+### Design Patterns Used
+
+- **Strategy Pattern**: Each evaluator is a strategy for handling specific expression types
+- **Chain of Responsibility**: Evaluators are tried in priority order until one matches
+- **Template Method**: Base classes define the structure, subclasses provide implementation
+- **Dependency Injection**: Service reference passed to evaluators for recursive evaluation
 
 ## Error Handling
 

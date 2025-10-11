@@ -16,9 +16,16 @@ A web-based playground for experimenting with JSLT (JSON Language Transformation
 
 ### Backend (FastAPI)
 - **Clean Architecture**: Organized into services, models, and API layers
-- **JSLT Service**: Custom JSLT interpreter with support for core features
+- **Modular JSLT Interpreter**: Refactored using Strategy + Chain of Responsibility patterns
+- **Extensible Design**: Easy to add new functions and evaluators
 - **RESTful API**: Transform and validation endpoints
 - **CORS Support**: Configured for frontend integration
+
+**Key Design Patterns:**
+- **Strategy Pattern**: Each expression type has its own evaluator
+- **Chain of Responsibility**: Evaluators are tried in priority order
+- **Dependency Injection**: Evaluators receive service reference for recursive evaluation
+- **Template Method**: Base classes define structure, subclasses implement details
 
 ### Frontend (React + TypeScript)
 - **Monaco Editor**: Professional code editing experience
@@ -297,9 +304,30 @@ This JSLT implementation currently supports core functionality but is missing so
 We welcome contributions! If you'd like to implement any of these missing features:
 
 1. Check the [official JSLT specification](https://github.com/schibsted/jslt)
-2. Review the current parser implementation in `backend/app/services/jslt_service.py`
+2. Review the modular implementation in `backend/app/services/jslt/`
+   - Add new evaluators in `evaluators/` for new expression types
+   - Add new functions in `functions/builtin_functions.py`
+   - Use the existing base classes for consistency
 3. Add comprehensive tests for new features
 4. Update documentation and examples
+
+**Example: Adding a New Function**
+```python
+# In backend/app/services/jslt/functions/builtin_functions.py
+class UpperFunction(BaseFunction):
+    @property
+    def name(self) -> str:
+        return "upper"
+
+    def execute(self, value: str) -> str:
+        return value.upper()
+
+# Register it in BUILTIN_FUNCTIONS list
+BUILTIN_FUNCTIONS = [
+    # ... existing functions
+    UpperFunction(),
+]
+```
 
 See the Contributing section below for detailed guidelines.
 
