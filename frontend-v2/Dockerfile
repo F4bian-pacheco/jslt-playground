@@ -18,6 +18,9 @@ RUN pnpm install --no-frozen-lockfile
 # Copiar el resto del proyecto (context: ./frontend-v2)
 COPY . .
 
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Hacer el servidor de Vite accesible desde fuera del contenedor
 ENV HOST=0.0.0.0
 ENV PORT=3000

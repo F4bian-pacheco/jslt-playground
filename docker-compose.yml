@@ -4,39 +4,47 @@ services:
             context: .
             dockerfile: backend/Dockerfile
         container_name: jslt-backend
-        ports:
-            - "8000:8000"
-        volumes:
-            - ./backend:/app
         environment:
             - PYTHONUNBUFFERED=1
         healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+            test:
+                - CMD
+                - curl
+                - -f
+                - http://localhost:8000/
             interval: 10s
             timeout: 5s
             retries: 5
         networks:
             - dokploy-network
+        labels:
+            - traefik.docker.network=dokploy-network
+            - traefik.http.routers.jslt-playground-dc1jon-18906-web.rule=Host(`jslt-playground-dc1jon-4ed901-72-60-172-172.traefik.me`)
+            - traefik.http.routers.jslt-playground-dc1jon-18906-web.entrypoints=web
+            - traefik.http.services.jslt-playground-dc1jon-18906-web.loadbalancer.server.port=8000
+            - traefik.http.routers.jslt-playground-dc1jon-18906-web.service=jslt-playground-dc1jon-18906-web
+            - traefik.enable=true
 
     frontend:
         build:
             context: ./frontend-v2
             dockerfile: Dockerfile.prod
+            args:
+                - VITE_API_URL=http://jslt-playground-dc1jon-4ed901-72-60-172-172.traefik.me
         container_name: jslt-frontend
-        ports:
-            - "3000:3000"
-        volumes:
-            - ./frontend-v2:/app
-            - /app/node_modules
         environment:
-            # When running frontend in a container but the app is accessed from the host
-            # the browser needs to use an address that resolves to the host. On Docker
-            # Desktop for Windows/macOS use `host.docker.internal` which maps to the host
-            - VITE_API_URL=http://host.docker.internal:8000
+            - VITE_API_URL=http://jslt-playground-dc1jon-4ed901-72-60-172-172.traefik.me
         depends_on:
             - backend
         networks:
             - dokploy-network
+        labels:
+            - traefik.docker.network=dokploy-network
+            - traefik.http.routers.jslt-playground-dc1jon-18907-web.rule=Host(`jslt-playground-dc1jon-ffe38d-72-60-172-172.traefik.me`)
+            - traefik.http.routers.jslt-playground-dc1jon-18907-web.entrypoints=web
+            - traefik.http.services.jslt-playground-dc1jon-18907-web.loadbalancer.server.port=3000
+            - traefik.http.routers.jslt-playground-dc1jon-18907-web.service=jslt-playground-dc1jon-18907-web
+            - traefik.enable=true
 
 networks:
     dokploy-network:
