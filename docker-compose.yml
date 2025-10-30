@@ -23,10 +23,10 @@ services:
             context: ./frontend-v2
             dockerfile: Dockerfile.prod
             args:
-                - VITE_API_URL=http://jslt-playground-dc1jon-4ed901-72-60-172-172.traefik.me
+                - VITE_API_URL=${BACKEND_URL}
         container_name: jslt-frontend
         environment:
-            - VITE_API_URL=http://jslt-playground-dc1jon-4ed901-72-60-172-172.traefik.me
+            - VITE_API_URL=${BACKEND_URL}
         depends_on:
             - backend
         networks:
