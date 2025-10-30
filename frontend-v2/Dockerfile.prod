@@ -1,0 +1,31 @@
+# Etapa 1: build con TypeScript
+FROM node:20-alpine AS build
+WORKDIR /app
+
+# Activar pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copiar archivos de dependencias
+COPY package.json pnpm-lock.yaml* ./
+
+# Instalar TODAS las dependencias, incluyendo dev (necesarias para tsc)
+RUN pnpm install --no-frozen-lockfile
+
+# Copiar el resto del código
+COPY . .
+
+# Compilar (Vite + TypeScript)
+RUN pnpm run build
+
+# Etapa 2: servir los archivos estáticos
+FROM node:20-alpine AS serve
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN pnpm add -g serve
+
+# Copiar build resultante
+COPY --from=build /app/dist ./dist
+
+# Exponer puerto
+EXPOSE 3000
+CMD ["serve", "-s", "dist", "-l", "3000"]
