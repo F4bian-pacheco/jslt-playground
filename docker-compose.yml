@@ -1,40 +1,43 @@
-
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    container_name: jslt-backend
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-    environment:
-      - PYTHONUNBUFFERED=1
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    backend:
+        build:
+            context: .
+            dockerfile: backend/Dockerfile
+        container_name: jslt-backend
+        ports:
+            - "8000:8000"
+        volumes:
+            - ./backend:/app
+        environment:
+            - PYTHONUNBUFFERED=1
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - dokploy-network
 
-  frontend:
-    build:
-      context: ./frontend-v2
-      dockerfile: Dockerfile.prod
-    container_name: jslt-frontend
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend-v2:/app
-      - /app/node_modules
-    environment:
-      # When running frontend in a container but the app is accessed from the host
-      # the browser needs to use an address that resolves to the host. On Docker
-      # Desktop for Windows/macOS use `host.docker.internal` which maps to the host
-      - VITE_API_URL=http://host.docker.internal:8000
-    depends_on:
-      - backend
+    frontend:
+        build:
+            context: ./frontend-v2
+            dockerfile: Dockerfile.prod
+        container_name: jslt-frontend
+        ports:
+            - "3000:3000"
+        volumes:
+            - ./frontend-v2:/app
+            - /app/node_modules
+        environment:
+            # When running frontend in a container but the app is accessed from the host
+            # the browser needs to use an address that resolves to the host. On Docker
+            # Desktop for Windows/macOS use `host.docker.internal` which maps to the host
+            - VITE_API_URL=http://host.docker.internal:8000
+        depends_on:
+            - backend
+        networks:
+            - dokploy-network
 
 networks:
-  default:
-    driver: bridge
+    dokploy-network:
+        external: true
