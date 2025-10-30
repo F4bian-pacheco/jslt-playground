@@ -17,13 +17,6 @@ services:
             retries: 5
         networks:
             - dokploy-network
-        labels:
-            - traefik.docker.network=dokploy-network
-            - traefik.http.routers.jslt-playground-dc1jon-18906-web.rule=Host(`jslt-playground-dc1jon-4ed901-72-60-172-172.traefik.me`)
-            - traefik.http.routers.jslt-playground-dc1jon-18906-web.entrypoints=web
-            - traefik.http.services.jslt-playground-dc1jon-18906-web.loadbalancer.server.port=8000
-            - traefik.http.routers.jslt-playground-dc1jon-18906-web.service=jslt-playground-dc1jon-18906-web
-            - traefik.enable=true
 
     frontend:
         build:
@@ -38,13 +31,6 @@ services:
             - backend
         networks:
             - dokploy-network
-        labels:
-            - traefik.docker.network=dokploy-network
-            - traefik.http.routers.jslt-playground-dc1jon-18907-web.rule=Host(`jslt-playground-dc1jon-ffe38d-72-60-172-172.traefik.me`)
-            - traefik.http.routers.jslt-playground-dc1jon-18907-web.entrypoints=web
-            - traefik.http.services.jslt-playground-dc1jon-18907-web.loadbalancer.server.port=3000
-            - traefik.http.routers.jslt-playground-dc1jon-18907-web.service=jslt-playground-dc1jon-18907-web
-            - traefik.enable=true
 
 networks:
     dokploy-network:
