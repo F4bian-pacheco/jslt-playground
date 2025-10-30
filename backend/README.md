@@ -237,3 +237,13 @@ The API provides comprehensive error handling:
 This backend is designed to work with the React frontend in the `../frontend` directory. The CORS configuration allows requests from `http://localhost:3000` by default.
 
 For production deployment, update the CORS origins in `app/core/config.py` to match your frontend URL.
+
+TODO:
+- add correct conditionals if, else
+    if (.foo.bar)
+        {
+            "array" : [for (.foo.bar) string(.)],
+            "size"  : size(.foo.bar)
+        }
+    else
+        "No array today"
