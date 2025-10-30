@@ -21,7 +21,8 @@ RUN pnpm run build
 FROM node:20-alpine AS serve
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
-RUN pnpm add -g serve
+# Instalar servidor estático con npm (no pnpm)
+RUN npm install -g serve
 
 # Copiar build resultante
 COPY --from=build /app/dist ./dist
