@@ -47,7 +47,7 @@ const PlaygroundLayout: React.FC = () => {
       <header className="px-8 py-4 bg-[var(--color-dark-400)] border-b border-[var(--color-dark-300)] flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <Link
-            to="/"
+            to=".."
             className="text-white hover:text-[var(--color-dark-200)] transition-colors text-lg font-semibold"
           >
             ← Back

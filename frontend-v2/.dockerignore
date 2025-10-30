@@ -1,0 +1,25 @@
+node_modules
+.pnpm
+dist
+/.git
+.gitignore
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+# Ignorar node_modules de cualquier carpeta
+**/node_modules
+frontend-v2/node_modules
+
+# Ignorar caches / lockstores de pnpm
+.pnpm-store
+**/.pnpm
+frontend-v2/.pnpm
+
+# Ignorar la build local
+frontend-v2/dist
+
+# Otros
+.git
+.gitignore
+.vscode
+*.log
